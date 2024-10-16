@@ -10,12 +10,15 @@
   },
   "files": [
     "build/api",
-    "build/terraform",
+    "build/cdk.out",
     "build/ui"
   ],
   "scripts": {
     "start": "lerna run start",
     "build": "lerna run build",
-    "test": "lerna run test"
+    "test": "lerna run test",
+    "cdk-deploy": "lerna run cdk-deploy",
+    "cdk-destroy": "lerna run cdk-destroy",
+    "cdk-synth": "lerna run cdk-synth"
   }
 }

@@ -1,0 +1,40 @@
+# Node.js dependencies
+/node_modules
+/packages/*/node_modules
+
+# Lerna
+.lerna
+
+# npm package lock files
+package-lock.json
+packages/*/package-lock.json
+
+# TypeScript build outputs
+*.tsbuildinfo
+
+# Local build artifacts
+build/
+packages/*/build
+dist/
+packages/*/dist
+
+# Log files
+npm-debug.log*
+lerna-debug.log*
+
+# .env files (environment variables)
+.env
+packages/*/.env
+
+# Mac OS specific
+.DS_Store
+
+# IDE specific files
+.vscode
+.idea
+
+# Temporary or misc files
+*.swp
+*.swo
+*.tmp
+*.log

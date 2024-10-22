@@ -4,20 +4,16 @@ import { createServer } from 'http';
 import { handler } from '../src';
 
 const uiLocalHost = 'http://localhost:3000';
-const userId: string = process.env.USER!;
+const jwtToken = 'mockJwtToken';
 
 createServer(async (req, res) => {
     // Sets up for CORS between UI and API running locally
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Origin', uiLocalHost);
 
-    // Mimic SSO login
-    if (req.url === '/sso/login') {
-        console.log('SSO login request received');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ is_authenticated: true, expires_at: 2870035200000 }));
-    } else if (req.method === 'OPTIONS') {
+    // Mimic SSO login is no longer needed, using JWT token now
+    if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();
     } else {
@@ -32,10 +28,14 @@ createServer(async (req, res) => {
 
             console.log('AWS credentials set');
             console.log('Handling request:', req.url);
+
+            // Mimicking Lambda execution, passing the JWT token in the Authorization header
             const handlerResponse = await handler(
                 {
                     body: req.read() as string,
-                    headers: { ['X-FORWARDED-USER']: userId },
+                    headers: {
+                        Authorization: `Bearer ${jwtToken}` // Replace jwtToken with an actual JWT token
+                    },
                     httpMethod: req.method!,
                     isBase64Encoded: false,
                     multiValueHeaders: {},
@@ -105,3 +105,4 @@ createServer(async (req, res) => {
 }).listen(8000, () => {
     console.log('Server listening on port 8000');
 });
+

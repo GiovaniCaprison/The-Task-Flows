@@ -1,0 +1,30 @@
+{
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": [],
+    "production": ["default"]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true
+    },
+    "build:storybook": {
+      "cache": true
+    },
+    "copy-bats-config": {
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    },
+    "test": {
+      "cache": true
+    },
+    "test:setup": {
+      "cache": true
+    },
+    "type-check": {
+      "cache": true
+    }
+  }
+}

@@ -24,6 +24,7 @@ lerna-debug.log*
 
 # .env files (environment variables)
 .env
+*.env
 packages/*/.env
 
 # Mac OS specific

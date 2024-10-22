@@ -1,4 +1,5 @@
 import { ZodString, z } from 'zod';
+import 'dotenv/config'; // Load environment variables from .env file
 
 const CLIENT_SIDE_ENCRYPTION_KMS_KEY_ALIAS_ENV_VARIABLE_KEY = 'CLIENT_SIDE_ENCRYPTION_KMS_KEY_ALIAS';
 const REGION_ENV_VARIABLE_KEY = 'AWS_REGION';

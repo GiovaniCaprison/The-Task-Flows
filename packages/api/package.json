@@ -1,12 +1,47 @@
 {
-  "name": "api",
+  "name": "@team10/api",
   "version": "1.0.0",
   "private": true,
-  "main": "index.js",
+  "type": "module",
+  "sideEffects": false,
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "../../build/api/index.js"
+  ],
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build:lambda-handler && npm run build:types",
+    "build:lambda-handler": "esbuild src/index.ts --bundle --outfile=../../build/api/index.js --platform=node",
+    "build:types": "tsc --project src-type-only.tsconfig.json",
+    "clean": "rm -rf coverage",
+    "fix": "prettier . --write && eslint . --fix",
+    "lint": "eslint .",
+    "start": "echo \"This is just a placeholder script. This script depends on the other start commands and won't actually get run directly.\"",
+    "start:dev-server": "node --experimental-specifier-resolution=node --loader ts-node/esm --watch scripts/run-dev-server.ts",
+    "start:incremental-build": "tsc --project src-type-only.tsconfig.json --watch",
+    "test": "vitest run",
+    "type-check": "tsc"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "outputs": [
+          "{projectRoot}/dist",
+          "{workspaceRoot}/build/api/index.js"
+        ]
+      },
+      "start": {
+        "dependsOn": [
+          "start:dev-server",
+          "start:incremental-build"
+        ]
+      },
+      "test": {
+        "dependsOn": [
+          "type-check"
+        ]
+      }
+    }
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.1.1",

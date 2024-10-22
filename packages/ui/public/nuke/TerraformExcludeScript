@@ -1,0 +1,53 @@
+#!/bin/sh
+
+cat <<-EOT
+regions:
+  - us-east-1
+  - global
+
+account-blocklist:
+  - "000000000000" # prod account
+
+resource-types:
+  excludes:
+  # The following resources cannot be filtered by tags (aws-nuke error: "does not support custom properties")
+  - IAMSAMLProvider
+  - ECRRepository
+  - CloudTrailTrail
+  - ElasticacheSubnetGroup
+  - CloudWatchEventsRule
+  - SQSQueue
+  - ElasticacheCacheCluster
+  - ElasticacheReplicationGroup
+  - NetpuneSnapshot
+  - NeptuneInstance
+  - NeptuneCluster
+  - LifecycleHook
+  - CloudWatchEventsTarget
+  - MQBroker
+  # The following resources are unvailable due to deprecated APIs or other issues:
+  - FMSPolicy
+  - MachineLearningMLModel
+  - FMSNotificationChannel
+  - MachineLearningBranchPrediction
+  - MachineLearningEvaluation
+  - MachineLearningDataSource
+
+accounts:
+  "00000000000": # the nuke account
+    filters:
+EOT
+for resource_type in $(./aws-nuke resource-types); 
+do  
+    cat <<-EOT
+      $resource_type:
+      - property: "tag:IsengardFarmMasterAccountResources"
+        value: "True"
+      - property: Name
+        type: "glob"
+        contains: 'do-not-delete'
+      - property: Name
+        type: "glob"
+        contains: 'DO-NOT-DELETE'
+EOT
+done

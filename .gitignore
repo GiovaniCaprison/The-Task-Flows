@@ -27,6 +27,21 @@ lerna-debug.log*
 *.env
 packages/*/.env
 
+# .nx files
+.nx
+
+# Jest coverage
+coverage
+
+# storybook
+.storybook-out
+
+# Yarn
+.yarn
+
+# build
+build
+
 # Mac OS specific
 .DS_Store
 

@@ -4,14 +4,22 @@
   "workspaces": [
     "packages/*"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "@team10/api": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2"
+  },
   "devDependencies": {
     "lerna": "^8.1.8",
     "prettier": "^3.2.2"
   },
+  "type": "module",
+  "sideEffects": false,
   "files": [
-    "build/api",
     "build/cdk.out",
+    "build/api",
+    "build/public-key-lambda",
+    "build/storybook",
     "build/ui"
   ],
   "scripts": {

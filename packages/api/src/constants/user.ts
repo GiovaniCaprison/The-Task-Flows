@@ -1,1 +1,1 @@
-export const USER_ID_HEADER = 'X-FORWARDED-USER';
+export const COGNITO_AUTH_HEADER = 'Authorization';

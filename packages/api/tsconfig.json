@@ -1,11 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "ES6",
-    "module": "commonjs",
-    "outDir": "../../build/api",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*"]
+  "extends": "../../tsconfig.json",
+  "include": ["scripts", "src", "test", "vitest.config.ts"]
 }
+

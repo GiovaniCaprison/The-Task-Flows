@@ -1,0 +1,503 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Complete infrastructure for TaskFlows application
+
+Conditions:
+  HasGitHubConfig: !Not [!Equals [!Ref GithubConnectionArn, '']]
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: taskflows
+    AllowedPattern: "^[a-z0-9-]{1,12}$"
+    Description: Project name (lowercase letters, numbers, hyphens only)
+
+  DomainName:
+    Type: String
+    Default: thetaskflows.com
+    Description: Main domain name
+
+  ApiDomainName:
+    Type: String
+    Default: api.thetaskflows.com
+    Description: API subdomain
+
+  HostedZoneId:
+    Type: String
+    Description: Route53 Hosted Zone ID for the domain
+
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - staging
+      - development
+    Description: Deployment environment
+
+  GithubConnectionArn:
+    Type: String
+    Default: ''
+    Description: (Optional) ARN of the GitHub connection in AWS CodeStar. Leave empty to skip CI/CD setup.
+
+  GithubOwner:
+    Type: String
+    Default: ''
+    Description: (Optional) GitHub repository owner
+
+  GithubRepo:
+    Type: String
+    Default: ''
+    Description: (Optional) GitHub repository name
+
+Resources:
+  # =========================================
+  # S3 Buckets
+  # =========================================
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  PipelineArtifactsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+
+  # =========================================
+  # Certificate & Domain Configuration
+  # =========================================
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub "*.${DomainName}"
+          HostedZoneId: !Ref HostedZoneId
+
+  # =========================================
+  # CloudFront Configuration
+  # =========================================
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub ${ProjectName} OAI
+
+  AssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AssetsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}
+            Action: s3:GetObject
+            Resource: !Sub ${AssetsBucket.Arn}/*
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref DomainName
+        Origins:
+          - DomainName: !GetAtt AssetsBucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: S3Origin
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+
+  # =========================================
+  # API Gateway & Lambda Configuration
+  # =========================================
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub ${ProjectName}-api
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: !Ref ProjectName
+          version: "1.0"
+        paths:
+          /{proxy+}:
+            x-amazon-apigateway-any-method:
+              parameters:
+                - name: proxy
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              x-amazon-apigateway-integration:
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiFunction.Arn}/invocations
+                httpMethod: POST
+                type: AWS_PROXY
+                passthroughBehavior: when_no_match
+                timeoutInMillis: 29000
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ApiDeployment
+      RestApiId: !Ref ApiGateway
+      StageName: !Ref Environment
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ApiGateway
+    Properties:
+      RestApiId: !Ref ApiGateway
+      Description: !Sub ${Environment} deployment
+
+  ApiCustomDomain:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref ApiDomainName
+      RegionalCertificateArn: !Ref Certificate
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      SecurityPolicy: TLS_1_2
+
+  ApiBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref ApiDomainName
+      RestApiId: !Ref ApiGateway
+      Stage: !Ref Environment
+
+  # =========================================
+  # DNS Configuration
+  # =========================================
+  MainDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+
+  ApiDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref ApiDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
+        HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
+
+  # =========================================
+  # Lambda Configuration
+  # =========================================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaCustomPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-api
+      Handler: dist/lambda.handler
+      Runtime: nodejs18.x
+      Code:
+        S3Bucket: !Ref AssetsBucket
+        S3Key: api/lambda.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 29
+      MemorySize: 256
+      Environment:
+        Variables:
+          NODE_ENV: !Ref Environment
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Condition: HasGitHubConfig
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeBuildServiceRole
+      Policies:
+        - PolicyName: CodeBuildCustomPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt AssetsBucket.Arn
+                  - !Sub ${AssetsBucket.Arn}/*
+                  - !GetAtt PipelineArtifactsBucket.Arn
+                  - !Sub ${PipelineArtifactsBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - lambda:UpdateFunctionCode
+                Resource: !GetAtt ApiFunction.Arn
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Condition: HasGitHubConfig
+    Properties:
+      Name: !Sub ${ProjectName}-build
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        EnvironmentVariables:
+          - Name: ENVIRONMENT
+            Value: !Ref Environment
+          - Name: PROJECT_NAME
+            Value: !Ref ProjectName
+          - Name: ASSETS_BUCKET
+            Value: !Ref AssetsBucket
+          - Name: DISTRIBUTION_ID
+            Value: !Ref CloudFrontDistribution
+          - Name: LAMBDA_FUNCTION
+            Value: !Ref ApiFunction
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 18
+              commands:
+                - npm install -g lerna
+            pre_build:
+              commands:
+                - echo Installing dependencies...
+                - npm ci
+                - lerna bootstrap
+            build:
+              commands:
+                - echo Building project...
+                - npm run build
+            post_build:
+              commands:
+                # Deploy UI
+                - echo Deploying UI...
+                - aws s3 sync build/ui/ s3://${ASSETS_BUCKET}/ --delete
+                - aws cloudfront create-invalidation --distribution-id ${DISTRIBUTION_ID} --paths "/*"
+                # Deploy API
+                - echo Deploying API...
+                - cd build/api
+                - zip -r lambda.zip .
+                - aws lambda update-function-code --function-name ${LAMBDA_FUNCTION} --zip-file fileb://lambda.zip
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Condition: HasGitHubConfig
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodePipelineServiceRole
+      Policies:
+        - PolicyName: CodePipelineCustomPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource:
+                  - !GetAtt PipelineArtifactsBucket.Arn
+                  - !Sub ${PipelineArtifactsBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: !GetAtt CodeBuildProject.Arn
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Condition: HasGitHubConfig
+    Properties:
+      Name: !Sub ${ProjectName}-pipeline
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactsBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref GithubConnectionArn
+                FullRepositoryId: !Sub ${GithubOwner}/${GithubRepo}
+                BranchName: main
+                DetectChanges: true
+              OutputArtifacts:
+                - Name: SourceCode
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: BuildAndDeploy
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceCode
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+
+Outputs:
+  WebsiteURL:
+    Description: Website URL
+    Value: !Sub https://${DomainName}
+    Export:
+      Name: !Sub ${ProjectName}-WebsiteURL
+
+  ApiURL:
+    Description: API URL
+    Value: !Sub https://${ApiDomainName}
+    Export:
+      Name: !Sub ${ProjectName}-ApiURL
+
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub ${ProjectName}-DistributionId
+
+  AssetsBucketName:
+    Description: S3 bucket for assets
+    Value: !Ref AssetsBucket
+    Export:
+      Name: !Sub ${ProjectName}-AssetsBucket
+
+  PipelineName:
+    Condition: HasGitHubConfig
+    Description: CodePipeline name
+    Value: !Ref Pipeline
+    Export:
+      Name: !Sub ${ProjectName}-PipelineName
+
+  ApiId:
+    Description: API Gateway ID
+    Value: !Ref ApiGateway
+    Export:
+      Name: !Sub ${ProjectName}-ApiId

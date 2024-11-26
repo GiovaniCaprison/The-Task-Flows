@@ -25,6 +25,10 @@ Parameters:
     Type: String
     Description: Route53 Hosted Zone ID for the domain
 
+  CertificateArn:
+    Type: String
+    Description: ARN of an existing ACM certificate for the domain and wildcards
+
   Environment:
     Type: String
     Default: production
@@ -88,22 +92,6 @@ Resources:
         Status: Enabled
 
   # =========================================
-  # Certificate & Domain Configuration
-  # =========================================
-  Certificate:
-    Type: AWS::CertificateManager::Certificate
-    Properties:
-      DomainName: !Ref DomainName
-      SubjectAlternativeNames:
-        - !Sub "*.${DomainName}"
-      ValidationMethod: DNS
-      DomainValidationOptions:
-        - DomainName: !Ref DomainName
-          HostedZoneId: !Ref HostedZoneId
-        - DomainName: !Sub "*.${DomainName}"
-          HostedZoneId: !Ref HostedZoneId
-
-  # =========================================
   # CloudFront Configuration
   # =========================================
   CloudFrontOriginAccessIdentity:
@@ -161,7 +149,7 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
         ViewerCertificate:
-          AcmCertificateArn: !Ref Certificate
+          AcmCertificateArn: !Ref CertificateArn
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
         PriceClass: PriceClass_100
@@ -198,8 +186,30 @@ Resources:
                 passthroughBehavior: when_no_match
                 timeoutInMillis: 29000
 
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+      Path: /
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+
   ApiStage:
     Type: AWS::ApiGateway::Stage
+    DependsOn:
+      - ApiGatewayAccount  # Add this dependency
+      - ApiDeployment
     Properties:
       DeploymentId: !Ref ApiDeployment
       RestApiId: !Ref ApiGateway
@@ -222,7 +232,7 @@ Resources:
     Type: AWS::ApiGateway::DomainName
     Properties:
       DomainName: !Ref ApiDomainName
-      RegionalCertificateArn: !Ref Certificate
+      RegionalCertificateArn: !Ref CertificateArn
       EndpointConfiguration:
         Types:
           - REGIONAL
@@ -230,6 +240,9 @@ Resources:
 
   ApiBasePathMapping:
     Type: AWS::ApiGateway::BasePathMapping
+    DependsOn:
+      - ApiCustomDomain
+      - ApiStage
     Properties:
       DomainName: !Ref ApiDomainName
       RestApiId: !Ref ApiGateway
@@ -289,11 +302,18 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub ${ProjectName}-api
-      Handler: dist/lambda.handler
+      Handler: index.handler
       Runtime: nodejs18.x
       Code:
-        S3Bucket: !Ref AssetsBucket
-        S3Key: api/lambda.zip
+        ZipFile: |
+          exports.handler = async (event) => {
+              return {
+                  statusCode: 200,
+                  body: JSON.stringify({
+                      message: 'Initial lambda function. Waiting for pipeline deployment.'
+                  })
+              };
+          };
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 29
       MemorySize: 256
@@ -313,7 +333,7 @@ Resources:
               Service: codebuild.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSCodeBuildServiceRole
+        - arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess
       Policies:
         - PolicyName: CodeBuildCustomPolicy
           PolicyDocument:
@@ -324,6 +344,7 @@ Resources:
                   - s3:PutObject
                   - s3:GetObject
                   - s3:ListBucket
+                  - s3:DeleteObject
                 Resource:
                   - !GetAtt AssetsBucket.Arn
                   - !Sub ${AssetsBucket.Arn}/*
@@ -337,6 +358,14 @@ Resources:
                 Action:
                   - cloudfront:CreateInvalidation
                 Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}-build
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}-build:*
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -351,6 +380,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:7.0
         EnvironmentVariables:
+          # Common variables
           - Name: ENVIRONMENT
             Value: !Ref Environment
           - Name: PROJECT_NAME
@@ -361,6 +391,32 @@ Resources:
             Value: !Ref CloudFrontDistribution
           - Name: LAMBDA_FUNCTION
             Value: !Ref ApiFunction
+          # API Environment Variables
+          - Name: AWS_REGION
+            Value: us-east-1
+          - Name: CLIENT_SIDE_ENCRYPTION_KMS_KEY_ALIAS
+            Value: ClientSideEncryptionKMSKey
+          - Name: RUM_APP_MONITOR_ID
+            Value: c3931e7b-6af0-4317-abbe-34bc465ebde2
+          - Name: JWKS_URI
+            Value: https://cognito-idp.us-east-1.amazonaws.com/us-east-1_w3SXZgYaO/.well-known/jwks.json
+          # UI Environment Variables
+          - Name: CI
+            Value: true
+          - Name: INLINE_RUNTIME_CHUNK
+            Value: false
+          - Name: REACT_EDITOR
+            Value: true
+          - Name: VITE_COGNITO_DOMAIN
+            Value: https://thetaskflows.auth.us-east-1.amazoncognito.com
+          - Name: VITE_COGNITO_CLIENT_ID
+            Value: 6pbl8036afks84uhk35i40t6bt
+          - Name: VITE_COGNITO_RESPONSE_TYPE
+            Value: code
+          - Name: VITE_COGNITO_SCOPE
+            Value: openid
+          - Name: VITE_COGNITO_REDIRECT_URI
+            Value: https://thetaskflows.com/callback
       Source:
         Type: CODEPIPELINE
         BuildSpec: |
@@ -374,8 +430,7 @@ Resources:
             pre_build:
               commands:
                 - echo Installing dependencies...
-                - npm ci
-                - lerna bootstrap
+                - npm install
             build:
               commands:
                 - echo Building project...
@@ -404,7 +459,7 @@ Resources:
               Service: codepipeline.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSCodePipelineServiceRole
+        - arn:aws:iam::aws:policy/AWSCodeStarFullAccess
       Policies:
         - PolicyName: CodePipelineCustomPolicy
           PolicyDocument:
@@ -421,6 +476,26 @@ Resources:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
                 Resource: !GetAtt CodeBuildProject.Arn
+              - Effect: Allow
+                Action:
+                  - codeconnections:UseConnection
+                Resource: !Ref GithubConnectionArn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codepipeline/${ProjectName}-pipeline
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codepipeline/${ProjectName}-pipeline:*
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: !Ref GithubConnectionArn
 
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -450,7 +525,7 @@ Resources:
               RunOrder: 1
         - Name: Build
           Actions:
-            - Name: BuildAndDeploy
+            - Name: Build
               ActionTypeId:
                 Category: Build
                 Owner: AWS

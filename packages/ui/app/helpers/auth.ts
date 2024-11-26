@@ -40,7 +40,7 @@ export const handleAuthCallback = async () => {
                 grant_type: 'authorization_code',
                 client_id: cognitoClientId,
                 code: code,
-                redirect_uri: 'http://localhost:3000/callback',
+                redirect_uri: 'https://thetaskflows.com/callback',
             })
         });
 

@@ -9,7 +9,7 @@ const fetchWithCognitoAuth = async (url: string, options: RequestInit = {}) => {
     const token = getToken();
     if (!token) {
         console.error('JWT token is missing, redirecting to login...');
-        window.location.href = '/login'; // Redirect to log in if token is missing
+        window.location.href = '/'; // Redirect to log in if token is missing
         return;
     }
 
@@ -25,7 +25,7 @@ const fetchWithCognitoAuth = async (url: string, options: RequestInit = {}) => {
 
     if (response.status === 401) {
         console.error('Unauthorized, redirecting to login...');
-        window.location.href = '/login'; // Redirect to log in on 401 Unauthorized
+        window.location.href = '/'; // Redirect to log in on 401 Unauthorized
     }
 
     return response;

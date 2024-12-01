@@ -1,8 +1,7 @@
-// @ts-ignore
 import React, { FunctionComponent } from 'react';
 
-import { ProgressCircle } from '../../components/progress-circle';
+import { Callback } from '../../components/callback';
 
 export const CallbackPage: FunctionComponent = () => (
-  <ProgressCircle />
+  <Callback />
 );

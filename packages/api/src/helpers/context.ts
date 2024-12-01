@@ -1,43 +1,39 @@
-import { TRPCError } from '@trpc/server';
+import { inferAsyncReturnType } from '@trpc/server';
 import { CreateAWSLambdaContextOptions } from '@trpc/server/adapters/aws-lambda';
-import { APIGatewayProxyEvent } from 'aws-lambda';
-import { verifyToken } from './jwt-utils';  // Import the token verification utility (explained earlier)
-import { Context } from '../types';
+import { cognitoClient } from '../clients';
+import { GetUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { AuthContext, LambdaContextType } from '../types';
 
-// Define the type for the decoded JWT token
-interface DecodedJWT {
-    'cognito:username'?: string;
-    sub?: string;
-    [key: string]: any;  // Add an index signature to allow for other fields in the JWT
-}
-
-/**
- * Creates the context that will be available to all requests.
- */
-export const createContext = async ({ event }: CreateAWSLambdaContextOptions<APIGatewayProxyEvent>): Promise<Context> => {
-    // Extract the Authorization header
-    const authHeader = event.headers.Authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Missing or invalid Authorization header' });
-    }
-
-    const token = authHeader.split(' ')[1]; // Extract the JWT token
-
+export const createContext = async ({
+                                        event,
+                                    }: CreateAWSLambdaContextOptions<LambdaContextType>) => {
     try {
-        // Verify and decode the JWT token
-        const decodedToken = await verifyToken(token) as DecodedJWT;  // Cast the decoded token to the DecodedJWT type
+        // We need to get the access token from the Authorization header
+        const accessToken = event.headers.authorization?.replace('Bearer ', '');
 
-        // Extract the Cognito username from the token payload
-        const username = decodedToken['cognito:username'];  // 'cognito:username' is the username in Cognito
-
-        if (!username) {
-            throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid token: missing username' });
+        if (!accessToken) {
+            return {
+                user: null,
+                isAuthenticated: false,
+            } satisfies AuthContext;
         }
 
-        // Return the context with the user's username
-        return { username };
+        const getUserCommand = new GetUserCommand({
+            AccessToken: accessToken  // This is the correct property name
+        });
+
+        const user = await cognitoClient.send(getUserCommand);
+
+        return {
+            user,
+            isAuthenticated: true,
+        } satisfies AuthContext;
     } catch (error) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired token' });
+        return {
+            user: null,
+            isAuthenticated: false,
+        } satisfies AuthContext;
     }
 };
+
+export type Context = inferAsyncReturnType<typeof createContext>;

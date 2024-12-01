@@ -1,16 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { httpLink } from '@trpc/client';
-import React, { FunctionComponent, StrictMode, useEffect, useState } from 'react';
+import { httpBatchLink } from '@trpc/client';
+import { FunctionComponent, StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
-import { ProgressCircle } from "./components/progress-circle";
+import { Amplify } from 'aws-amplify';
+import { cognitoUserPoolsTokenProvider } from '@aws-amplify/auth/cognito';
+import { defaultStorage } from '@aws-amplify/core';
+import { signInWithRedirect, fetchAuthSession } from '@aws-amplify/auth';
 
 import { api } from './helpers/api';
-import { setupRum } from './helpers/rum';
-import { Layout } from './layout/layout';
 import { ThemeProvider } from './layout/theme-provider';
 import { routes } from './routes';
-import { checkAuth, handleAuthCallback } from './helpers/auth';
+import { Layout } from './layout/layout';
+import { ProgressCircle } from "./components/progress-circle";
 
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -19,110 +21,125 @@ import '@fontsource/roboto/700.css';
 import './root.css';
 
 const isProd = process.env.NODE_ENV === 'production';
+const apiUrl = isProd ? '/api' : 'http://localhost:8000';
 
-if (isProd) {
-    void setupRum();
-}
+cognitoUserPoolsTokenProvider.setKeyValueStorage(defaultStorage);
 
-const apiUrl = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000';
-const apiClient = api.createClient({
-    links: [httpLink({
-        url: apiUrl,
-        fetch: (input, init = {}) => {
-            const token = localStorage.getItem('jwtToken');
-            init.headers = {
-                ...init.headers,
-                Authorization: `Bearer ${token}`,
-            };
-            return fetch(input, init);
+// Configure Amplify
+Amplify.configure({
+    Auth: {
+        Cognito: {
+            userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+            userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
+            loginWith: {
+                oauth: {
+                    domain: 'thetaskflows.auth.us-east-1.amazoncognito.com',
+                    scopes: ['openid'],
+                    responseType: 'code',
+                    redirectSignIn: ['https://thetaskflows.com/callback'],
+                    redirectSignOut: ['https://thetaskflows.com'],
+                }
+            }
         }
-    })]
+    }
 });
 
-const queryClient = new QueryClient();
+const apiClient = api.createClient({
+    links: [
+        httpBatchLink({
+            url: apiUrl,
+            async headers() {
+                try {
+                    const session = await fetchAuthSession();
+                    const token = session.tokens?.accessToken?.toString();
 
-const LayoutWrapper: FunctionComponent = () => {
-    return <Layout />;
-};
+                    if (!token) {
+                        throw new Error('No token available');
+                    }
 
-const ProtectedRoute: FunctionComponent<{ element: React.ReactElement }> = ({ element }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-    useEffect(() => {
-        const checkAuthentication = async () => {
-            try {
-                const isAuthed = checkAuth();
-                setIsAuthenticated(isAuthed);
-            } catch (error) {
-                console.error('Authentication check failed:', error);
-                setIsAuthenticated(false);
-            }
-        };
-
-        checkAuthentication();
-    }, []);
-
-    if (isAuthenticated === null) {
-        return <ProgressCircle />;
-    }
-
-    return isAuthenticated ? element : <ProgressCircle />;
-};
-
-const Root: FunctionComponent = () => {
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const init = async () => {
-            try {
-                if (window.location.pathname === '/callback') {
-                    await handleAuthCallback();
-                    window.location.href = '/';
-                } else {
-                    checkAuth();
+                    return {
+                        authorization: `Bearer ${token}`,
+                    };
+                } catch {
+                    // If no session, redirect to Cognito hosted UI
+                    signInWithRedirect();
+                    return {};
                 }
-            } catch (error) {
-                console.error('Authentication error:', error);
-                window.location.href = '/';
-            } finally {
+            },
+        }),
+    ],
+});
+
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            retry: (failureCount, error: any) => {
+                if (error.data?.httpStatus === 401 || error.data?.httpStatus === 403) {
+                    signInWithRedirect();
+                    return false;
+                }
+                return failureCount < 3;
+            }
+        }
+    }
+});
+
+const AuthWrapper: FunctionComponent<{ children: React.ReactNode }> = ({ children }) => {
+    const [isLoading, setIsLoading] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const session = await fetchAuthSession();
+                if (!session.tokens?.accessToken) {
+                    throw new Error('No valid session');
+                }
+                setIsAuthenticated(true);
                 setIsLoading(false);
+            } catch (error) {
+                console.log('Auth error:', error);
+                signInWithRedirect();
             }
         };
 
-        init();
+        checkAuth();
     }, []);
 
     if (isLoading) {
-        return <ProgressCircle />;
+        return <ProgressCircle/>
     }
 
-    return (
-        <StrictMode>
-            <api.Provider client={apiClient} queryClient={queryClient}>
-                <QueryClientProvider client={queryClient}>
-                    <ThemeProvider>
-                        <RouterProvider
-                            router={createBrowserRouter([
-                                {
-                                    path: '/',
-                                    element: <ProtectedRoute element={<LayoutWrapper />} />,
-                                    children: routes,
-                                },
-                                {
-                                    path: '/callback',
-                                    element: <ProgressCircle />,
-                                },
-                            ])}
-                        />
-                    </ThemeProvider>
-                </QueryClientProvider>
-            </api.Provider>
-        </StrictMode>
-    );
+    if (!isAuthenticated) {
+        return null;
+    }
+
+    return <>{children}</>;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-const container: HTMLElement = document.getElementById('app')!;
+const Root: FunctionComponent = () => (
+    <StrictMode>
+        <api.Provider client={apiClient} queryClient={queryClient}>
+            <QueryClientProvider client={queryClient}>
+                <ThemeProvider>
+                    <RouterProvider
+                        router={createBrowserRouter([
+                            {
+                                path: '/',
+                                element: <AuthWrapper><Layout /></AuthWrapper>,
+                                children: routes,
+                            },
+                            {
+                                path: '/callback',
+                                element: <ProgressCircle />,
+                            }
+                        ])}
+                    />
+                </ThemeProvider>
+            </QueryClientProvider>
+        </api.Provider>
+    </StrictMode>
+);
+
+const container = document.getElementById('app')!;
 createRoot(container).render(<Root />);
-
-

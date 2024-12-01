@@ -417,6 +417,8 @@ Resources:
             Value: openid
           - Name: VITE_COGNITO_REDIRECT_URI
             Value: https://thetaskflows.com/callback
+          - Name: VITE_COGNITO_USER_POOL_ID
+            Value: us-east-1_w3SXZgYaO
       Source:
         Type: CODEPIPELINE
         BuildSpec: |

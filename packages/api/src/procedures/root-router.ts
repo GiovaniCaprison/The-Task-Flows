@@ -1,6 +1,8 @@
-import { createRouter } from '../helpers';
-import { rum } from './rum';
+import { createRouter } from '../helpers/trpc';
+import { getUserProfile } from './get-user-profile';
 
 export const rootRouter = createRouter({
-    rum,
-})
+    getUserProfile,
+});
+
+export type RootRouter = typeof rootRouter;

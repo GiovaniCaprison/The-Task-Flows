@@ -429,6 +429,7 @@ Resources:
                 nodejs: 18
               commands:
                 - npm install -g lerna
+                - npm cache clean --force
             pre_build:
               commands:
                 - echo Installing dependencies...

@@ -13,8 +13,13 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
-    "lerna": "^8.1.8",
+    "lerna": "^5.6.2",
     "prettier": "^3.2.2"
+  },
+  "resolutions": {
+    "minimatch": "3.1.2",
+    "glob": "7.2.3",
+    "@types/glob": "7.2.0"
   },
   "type": "module",
   "sideEffects": false,
@@ -29,6 +34,7 @@
     "start": "lerna run start",
     "build": "lerna run build",
     "test": "lerna run test",
+    "clean": "lerna run clean",
     "cdk-deploy": "lerna run cdk-deploy",
     "cdk-destroy": "lerna run cdk-destroy",
     "cdk-synth": "lerna run cdk-synth"

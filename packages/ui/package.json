@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "files": [
     "build",
     "../../build/storybook",
@@ -24,7 +27,7 @@
     "@trpc/client": "^10.45.0",
     "@trpc/react-query": "^10.45.0",
     "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.113",
+    "@types/node": "^20.0.0",
     "aws-rum-web": "^1.16.1",
     "buffer": "^6.0.3",
     "jwks-rsa": "^3.1.0",

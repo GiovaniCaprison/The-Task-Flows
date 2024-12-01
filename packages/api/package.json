@@ -5,6 +5,9 @@
   "type": "module",
   "sideEffects": false,
   "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "files": [
     "dist",
     "../../build/api/index.js"

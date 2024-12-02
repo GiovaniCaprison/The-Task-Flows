@@ -54,3 +54,5 @@ build
 *.swo
 *.tmp
 *.log
+
+packages/cfn/master-fullstack.yaml

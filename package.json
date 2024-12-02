@@ -35,8 +35,7 @@
     "build": "lerna run build",
     "test": "lerna run test",
     "clean": "lerna run clean",
-    "cdk-deploy": "lerna run cdk-deploy",
-    "cdk-destroy": "lerna run cdk-destroy",
-    "cdk-synth": "lerna run cdk-synth"
+    "fix": "lerna run fix",
+    "lint": "lerna run lint"
   }
 }

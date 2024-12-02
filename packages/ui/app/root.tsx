@@ -29,7 +29,9 @@ cognitoUserPoolsTokenProvider.setKeyValueStorage(defaultStorage);
 Amplify.configure({
     Auth: {
         Cognito: {
+            // @ts-ignore
             userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+            // @ts-ignore
             userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
             loginWith: {
                 oauth: {
@@ -47,7 +49,7 @@ Amplify.configure({
 const apiClient = api.createClient({
     links: [
         httpBatchLink({
-            url: apiUrl,
+            url: isProd ? `${apiUrl}/trpc` : `${apiUrl}/api/trpc`,  // Different paths for prod/dev
             async headers() {
                 try {
                     const session = await fetchAuthSession();
@@ -61,7 +63,6 @@ const apiClient = api.createClient({
                         authorization: `Bearer ${token}`,
                     };
                 } catch {
-                    // If no session, redirect to Cognito hosted UI
                     signInWithRedirect();
                     return {};
                 }

@@ -8,20 +8,18 @@ export const createContext = async ({
                                         event,
                                     }: CreateAWSLambdaContextOptions<LambdaContextType>) => {
     try {
-        // We need to get the access token from the Authorization header
+        console.log(process.env.AWS_UPLOAD_BUCKET_NAME);
         const accessToken = event.headers.authorization?.replace('Bearer ', '');
 
         if (!accessToken) {
+            console.error('Missing Authorization header or token');
             return {
                 user: null,
                 isAuthenticated: false,
             } satisfies AuthContext;
         }
 
-        const getUserCommand = new GetUserCommand({
-            AccessToken: accessToken  // This is the correct property name
-        });
-
+        const getUserCommand = new GetUserCommand({ AccessToken: accessToken });
         const user = await cognitoClient.send(getUserCommand);
 
         return {
@@ -29,11 +27,13 @@ export const createContext = async ({
             isAuthenticated: true,
         } satisfies AuthContext;
     } catch (error) {
+        console.error('Error in createContext:', error);
         return {
             user: null,
             isAuthenticated: false,
         } satisfies AuthContext;
     }
 };
+
 
 export type Context = inferAsyncReturnType<typeof createContext>;

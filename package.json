@@ -7,10 +7,12 @@
   "dependencies": {
     "@aws-amplify/auth": "^6.8.0",
     "@aws-amplify/core": "^6.7.0",
+    "@cloudscape-design/components": "^3.0.839",
     "@team10/api": "^1.0.0",
     "aws-amplify": "^6.10.0",
     "dotenv": "^16.4.5",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "react-dropzone": "^14.3.5"
   },
   "devDependencies": {
     "lerna": "^5.6.2",

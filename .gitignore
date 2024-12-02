@@ -55,4 +55,4 @@ build
 *.tmp
 *.log
 
-packages/cfn
+master-template.yaml

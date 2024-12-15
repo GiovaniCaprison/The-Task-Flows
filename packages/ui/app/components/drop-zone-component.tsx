@@ -38,7 +38,7 @@ export const DropZoneComponent: React.FC = () => {
         }
     };
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    const { getRootProps, getInputProps } = useDropzone({
         onDrop,
         maxFiles: 1
     });

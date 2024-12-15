@@ -52,7 +52,7 @@ export const HomePageHeader: FunctionComponent = () => {
           </Box>
         </Text>
         <Text sx={{ textAlign: 'center', animation: `${FADE_IN_EFFECT} 1s linear 2.25s 1 normal forwards`, fontSize: '1.6rem', opacity: 0 }}>
-          Your tool for computing the things you need
+          Your tool for managing the things you need
         </Text>
         <Text sx={{ textAlign: 'center', animation: `${FADE_IN_EFFECT} 1s linear 2.25s 1 normal forwards`, fontSize: '1.6rem', opacity: 0 }}>
           When you need them

@@ -21,9 +21,9 @@ export const ArchitecturePage: FunctionComponent = () => (
           Lambda functions are also configured to emit RUM events to the RUM App Monitor, have Lambda Insights enabled, and CodeGuru Profiles configured.
           All of this is streamed to Glacier S3 Buckets for warehousing. The diagram which you are seeing now represents
           TheTaskFlows Web-app architecture, each element from the image is indexed with a corresponding description below. The entirety of the project&#39;s
-          infrastructure has been built using CDK which is deployed to the TheTaskFlows Master Account via a Git Pipeline. The build system bundles our code and
+          infrastructure has been built using CloudFormation which is deployed to the TheTaskFlows Master Account via a Git Pipeline. The build system bundles our code and
           IaC together i.e. the code which is used, for example, in the OpenAPI Lambda, is built and stored in a separate package, which is then defined as the
-          source code for the Lambda function in it&#39;s CDK stack.
+          source code for the Lambda function in it&#39;s CloudFormation stack stack.
         </Markdown>
       </LinkableSection>
       <LinkableSection title='1. Route 53 CloudFront Alias'>

@@ -27,7 +27,7 @@ export const getUploadUrl = procedure('getUploadUrl')
         const key = `uploads/${userId}/${fileId}-${input.fileName}`;
 
         const command = new PutObjectCommand({
-            Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
+            Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
             Key: key,
             ContentType: input.fileType,
             Metadata: {

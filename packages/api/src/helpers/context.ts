@@ -8,7 +8,6 @@ export const createContext = async ({
                                         event,
                                     }: CreateAWSLambdaContextOptions<LambdaContextType>) => {
     try {
-        console.log(process.env.AWS_UPLOAD_BUCKET_NAME);
         const accessToken = event.headers.authorization?.replace('Bearer ', '');
 
         if (!accessToken) {

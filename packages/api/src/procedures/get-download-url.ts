@@ -22,7 +22,7 @@ export const getDownloadUrl = procedure('getDownloadUrl')
         }
 
         const command = new GetObjectCommand({
-            Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
+            Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
             Key: input.fileKey
         });
 

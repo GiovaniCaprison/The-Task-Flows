@@ -12,7 +12,7 @@ export const listUserFiles = procedure('listUserFiles')
         }
 
         const command = new ListObjectsV2Command({
-            Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
+            Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
             Prefix: `uploads/${userId}/`
         });
 

@@ -11,7 +11,7 @@ const lambdaHandler = awsLambdaRequestHandler({
 
 export const handler = middy(lambdaHandler)
     .use(cors({
-        origins: ['https://thetaskflows.com', 'http://localhost:3000'],
+        origins: ['https://thetaskflows.com'],
         credentials: true,
         headers: 'Content-Type,Authorization'
     }));

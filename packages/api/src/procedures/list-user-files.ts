@@ -1,29 +1,62 @@
 import { procedure } from '../helpers/trpc';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { s3Client } from '../clients';
+import { TRPCError } from '@trpc/server';
+
+const validateEnvironment = () => {
+    if (!process.env.AWS_UPLOAD_BUCKET_NAME) {
+        throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'S3 bucket not configured'
+        });
+    }
+};
 
 export const listUserFiles = procedure('listUserFiles')
     .query(async ({ ctx }) => {
-        const userId = ctx.user?.Username ||
-            ctx.user?.UserAttributes?.find(attr => attr.Name === 'sub')?.Value;
+        try {
+            validateEnvironment();
 
-        if (!userId) {
-            throw new Error('User ID not found');
+            const userId = ctx.user?.Username ||
+                ctx.user?.UserAttributes?.find(attr => attr.Name === 'sub')?.Value;
+
+            if (!userId) {
+                throw new TRPCError({
+                    code: 'UNAUTHORIZED',
+                    message: 'User ID not found'
+                });
+            }
+
+            const command = new ListObjectsV2Command({
+                Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
+                Prefix: `uploads/${userId}/`
+            });
+
+            const response = await s3Client.send(command);
+
+            if (!response.Contents) {
+                return [];
+            }
+
+            return response.Contents
+                .filter(obj => obj.Key && obj.Size && obj.LastModified)
+                .map(obj => ({
+                    key: obj.Key!,
+                    size: obj.Size!,
+                    lastModified: obj.LastModified!,
+                    fileName: obj.Key!.split('/').pop()!
+                }));
+        } catch (error) {
+            console.error('Error in listUserFiles:', error);
+
+            if (error instanceof TRPCError) {
+                throw error;
+            }
+
+            throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'Failed to list files',
+                cause: error
+            });
         }
-
-        const command = new ListObjectsV2Command({
-            Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
-            Prefix: `uploads/${userId}/`
-        });
-
-        const response = await s3Client.send(command);
-
-        return (response.Contents || [])
-            .filter(obj => obj.Key && obj.Size && obj.LastModified)
-            .map(obj => ({
-                key: obj.Key!,
-                size: obj.Size!,
-                lastModified: obj.LastModified!,
-                fileName: obj.Key!.split('/').pop()!
-            }));
     });

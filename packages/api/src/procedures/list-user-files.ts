@@ -3,20 +3,9 @@ import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { s3Client } from '../clients';
 import { TRPCError } from '@trpc/server';
 
-const validateEnvironment = () => {
-    if (!process.env.AWS_UPLOAD_BUCKET_NAME) {
-        throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'S3 bucket not configured'
-        });
-    }
-};
-
 export const listUserFiles = procedure('listUserFiles')
     .query(async ({ ctx }) => {
         try {
-            validateEnvironment();
-
             const userId = ctx.user?.Username ||
                 ctx.user?.UserAttributes?.find(attr => attr.Name === 'sub')?.Value;
 
@@ -28,7 +17,7 @@ export const listUserFiles = procedure('listUserFiles')
             }
 
             const command = new ListObjectsV2Command({
-                Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
+                Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
                 Prefix: `uploads/${userId}/`
             });
 

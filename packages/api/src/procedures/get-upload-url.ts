@@ -8,15 +8,6 @@ import { TRPCError } from '@trpc/server';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const validateEnvironment = () => {
-    if (!process.env.AWS_UPLOAD_BUCKET_NAME) {
-        throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'S3 bucket not configured'
-        });
-    }
-};
-
 export const getUploadUrl = procedure('getUploadUrl')
     .input(z.object({
         fileName: z.string().min(1),
@@ -25,8 +16,6 @@ export const getUploadUrl = procedure('getUploadUrl')
     }))
     .mutation(async ({ input, ctx }) => {
         try {
-            validateEnvironment();
-
             const userId = ctx.user?.Username ||
                 ctx.user?.UserAttributes?.find(attr => attr.Name === 'sub')?.Value;
 
@@ -43,7 +32,7 @@ export const getUploadUrl = procedure('getUploadUrl')
             const key = `uploads/${userId}/${fileId}-${sanitizedFileName}`;
 
             const command = new PutObjectCommand({
-                Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
+                Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
                 Key: key,
                 ContentType: input.fileType,
                 Metadata: {

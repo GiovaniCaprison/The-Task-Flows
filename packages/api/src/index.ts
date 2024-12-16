@@ -11,9 +11,27 @@ const lambdaHandler = awsLambdaRequestHandler({
 
 export const handler = middy(lambdaHandler)
     .use(cors({
-        origins: ['https://thetaskflows.com'],
+        origins: ['https://thetaskflows.com', 'http://localhost:3000'],
         credentials: true,
         headers: 'Content-Type,Authorization'
-    }));
+    }))
+    .use({
+        before: async (request) => {
+            console.log('Request:', {
+                path: request.event.path,
+                method: request.event.httpMethod,
+                headers: request.event.headers,
+            });
+        },
+        after: async (request) => {
+            console.log('Response:', {
+                statusCode: request.response?.statusCode,
+                headers: request.response?.headers,
+            });
+        },
+        onError: async (request) => {
+            console.error('Error:', request.error);
+        }
+    });
 
 export type { RootRouter } from './procedures';

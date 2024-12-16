@@ -152,25 +152,21 @@ export const ArchitecturePage: FunctionComponent = () => (
           we submit decrypt request to KMS.
         </Markdown>
       </LinkableSection>
-      <LinkableSection title='10. TheTaskFlows Business Logic'>
-        <Markdown>
-          TheTaskFlows Business Logic is configured via a complex series of configurations ranging from AWS Services, to actual code and
-          internal tooling. However, if you are interested in learning more, please see the next segment of this page for a full breakdown.
-        </Markdown>
-      </LinkableSection>
-      <LinkableSection title='11. Public Key Lambda'>
+      <LinkableSection title='10. Public Key Lambda'>
         <Markdown>
           This Lambda function is responsible for getting the public key of the [KMS](https://aws.amazon.com/kms/)-managed [asymmetric key
           pair](https://en.wikipedia.org/wiki/Public-key_cryptography) that gets used in the browser for client-side encryption.
         </Markdown>
       </LinkableSection>
-      <LinkableSection title='12. UI Asset S3 Bucket'>
+      <LinkableSection title='11. UI Asset S3 Bucket'>
         <Markdown>
           TheTaskFlows static assets (like the HTML, JavaScript, and CSS) are served via an S3 bucket. This S3 bucket is encrypted at
           rest and its access is protected with IAM. Only the CloudFront distribution is able to access the bucket using an [origin access
           identity](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html). With
           that, users are not able to access the assets without having first gone through Cognito authentication with the CloudFront
-          distribution.
+          distribution. This is different from the bucket used to store user-data, however for simplicities sake, I have not included this process in the
+          diagram. To visualize the process however, our OpenAPI Lambda has permissions to fetch data from the file storage bucket based on the
+          requesting users' file path within the bucket.
         </Markdown>
       </LinkableSection>
     </PageSection>

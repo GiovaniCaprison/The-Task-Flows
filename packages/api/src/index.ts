@@ -1,11 +1,19 @@
+import middy from '@middy/core';
+import cors from '@middy/http-cors';
 import { awsLambdaRequestHandler } from '@trpc/server/adapters/aws-lambda';
 import { createContext } from './helpers';
 import { rootRouter } from './procedures';
 
-const handler = awsLambdaRequestHandler({
+const lambdaHandler = awsLambdaRequestHandler({
     router: rootRouter,
     createContext,
 });
 
-export { handler };
+export const handler = middy(lambdaHandler)
+    .use(cors({
+        origins: ['https://thetaskflows.com', 'http://localhost:3000'],
+        credentials: true,
+        headers: 'Content-Type,Authorization'
+    }));
+
 export type { RootRouter } from './procedures';

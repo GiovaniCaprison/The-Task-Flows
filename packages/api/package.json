@@ -54,6 +54,7 @@
     "@aws-sdk/client-s3": "^3.703.0",
     "@aws-sdk/s3-request-presigner": "^3.703.0",
     "@middy/core": "^3.6.2",
+    "@middy/http-cors": "^6.0.0",
     "@trpc/server": "^10.45.0",
     "@types/aws-lambda": "^8.10.131",
     "amazon-cognito-identity-js": "^6.3.12",

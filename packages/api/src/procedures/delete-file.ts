@@ -21,7 +21,7 @@ export const deleteFile = procedure('deleteFile')
         }
 
         const command = new DeleteObjectCommand({
-            Bucket: 'thetaskflows-uploadsbucket-qwecbokwzos3',
+            Bucket: process.env.AWS_UPLOAD_BUCKET_NAME,
             Key: input.fileKey
         });
 

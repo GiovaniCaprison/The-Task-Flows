@@ -21,7 +21,7 @@ import '@fontsource/roboto/700.css';
 import './root.css';
 
 const isProd = process.env.NODE_ENV === 'production';
-const apiUrl = isProd ? '/api' : 'http://localhost:8000';
+const apiUrl = isProd ? 'https://api.thetaskflows.com' : 'http://localhost:8000';
 
 cognitoUserPoolsTokenProvider.setKeyValueStorage(defaultStorage);
 
@@ -49,7 +49,7 @@ Amplify.configure({
 const apiClient = api.createClient({
     links: [
         httpBatchLink({
-            url: isProd ? `${apiUrl}/trpc` : `${apiUrl}/api/trpc`,  // Different paths for prod/dev
+            url: isProd ? `${apiUrl}/trpc` : `${apiUrl}/api/trpc`,
             async headers() {
                 try {
                     const session = await fetchAuthSession();

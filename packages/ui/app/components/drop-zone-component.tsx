@@ -44,14 +44,14 @@ export const DropZoneComponent: React.FC = () => {
 
     return (
         <Container
-        sx={{paddingTop: '40px', paddingBottom: '40px'}}
+        sx={{paddingTop: '40px', paddingBottom: '40px' }}
         >
             <Flex direction="column">
                 <Box
                     {...getRootProps()}
                     sx={{
                         border: '2px dashed #ccc',
-                        padding: 4,
+                        padding: 2,
                         textAlign: 'center',
                         borderRadius: '8px',
                     }}

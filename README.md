@@ -22,6 +22,8 @@ To build, simply run `npm install` then `npm run build`.
 
 To spin up the development server, run `npm run start`.
 
+Note - I have not included and CDK or CFN code for security purposes.
+
 # Development 💻
 
 ## Technologies 🛠

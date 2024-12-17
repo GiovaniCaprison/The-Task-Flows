@@ -52,7 +52,7 @@ Amplify.configure({
 const apiClient = api.createClient({
     links: [
         httpBatchLink({
-            url: isProd ? `${apiUrl}/api` : `${apiUrl}/api/trpc`,
+            url: isProd ? `${apiUrl}/trpc` : `${apiUrl}/api/trpc`,
             async headers() {
                 try {
                     const session = await fetchAuthSession();

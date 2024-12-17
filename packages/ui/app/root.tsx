@@ -25,18 +25,21 @@ const apiUrl = isProd ? 'https://api.thetaskflows.com' : 'http://localhost:8000'
 
 cognitoUserPoolsTokenProvider.setKeyValueStorage(defaultStorage);
 
-// Configure Amplify
 Amplify.configure({
     Auth: {
         Cognito: {
-            // @ts-ignore
             userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-            // @ts-ignore
             userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
             loginWith: {
                 oauth: {
                     domain: 'thetaskflows.auth.us-east-1.amazoncognito.com',
-                    scopes: ['openid'],
+                    // Update these scopes
+                    scopes: [
+                        'openid',
+                        'email',
+                        'profile',
+                        'aws.cognito.signin.user.admin'
+                    ],
                     responseType: 'code',
                     redirectSignIn: ['https://thetaskflows.com/callback'],
                     redirectSignOut: ['https://thetaskflows.com'],

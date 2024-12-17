@@ -9,6 +9,7 @@ const lambdaHandler = awsLambdaRequestHandler({
     createContext,
 });
 
+// Add this to your Lambda handler
 export const handler = middy(lambdaHandler)
     .use(cors({
         origins: ['https://thetaskflows.com', 'http://localhost:3000'],
@@ -17,20 +18,18 @@ export const handler = middy(lambdaHandler)
     }))
     .use({
         before: async (request) => {
-            console.log('Request:', {
-                path: request.event.path,
-                method: request.event.httpMethod,
+            console.log('Request details:', {
+                body: request.event.body,
                 headers: request.event.headers,
-            });
-        },
-        after: async (request) => {
-            console.log('Response:', {
-                statusCode: request.response?.statusCode,
-                headers: request.response?.headers,
+                path: request.event.path
             });
         },
         onError: async (request) => {
-            console.error('Error:', request.error);
+            console.error('Lambda error:', {
+                error: request.error,
+                errorMessage: request.error.message,
+                errorStack: request.error.stack
+            });
         }
     });
 

@@ -8,7 +8,13 @@ export const createContext = async ({
                                         event,
                                     }: CreateAWSLambdaContextOptions<LambdaContextType>) => {
     try {
-        const accessToken = event.headers.authorization?.replace('Bearer ', '');
+        console.log('Headers:', event.headers); // Debug log
+
+        // Check both authorization and Authorization (case sensitivity)
+        const accessToken = event.headers.Authorization?.replace('Bearer ', '') ||
+            event.headers.authorization?.replace('Bearer ', '');
+
+        console.log('Access Token:', accessToken ? 'Present' : 'Missing'); // Debug log
 
         if (!accessToken) {
             console.error('Missing Authorization header or token');
@@ -18,13 +24,23 @@ export const createContext = async ({
             } satisfies AuthContext;
         }
 
-        const getUserCommand = new GetUserCommand({ AccessToken: accessToken });
-        const user = await cognitoClient.send(getUserCommand);
+        try {
+            const getUserCommand = new GetUserCommand({ AccessToken: accessToken });
+            const user = await cognitoClient.send(getUserCommand);
 
-        return {
-            user,
-            isAuthenticated: true,
-        } satisfies AuthContext;
+            console.log('Cognito User:', user); // Debug log
+
+            return {
+                user,
+                isAuthenticated: true,
+            } satisfies AuthContext;
+        } catch (cognitoError) {
+            console.error('Cognito GetUser error:', cognitoError);
+            return {
+                user: null,
+                isAuthenticated: false,
+            } satisfies AuthContext;
+        }
     } catch (error) {
         console.error('Error in createContext:', error);
         return {
@@ -33,6 +49,5 @@ export const createContext = async ({
         } satisfies AuthContext;
     }
 };
-
 
 export type Context = inferAsyncReturnType<typeof createContext>;

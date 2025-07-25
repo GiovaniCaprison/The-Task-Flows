@@ -70,4 +70,4 @@ All of the packages that power the website are contained in `/packages`. Below i
 
 - `api`: Contains all of the code for running the backend API
 - `ui`: Contains all of the code for the UI of the website
-- `cfn (hidden)`: Contains the CloudFormation template for the website
+- `cdk (hidden)`: Contains the CDK package used to deploy the infrastructure used by the website
